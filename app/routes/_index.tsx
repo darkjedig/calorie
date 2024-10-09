@@ -24,19 +24,15 @@ interface LoaderData {
 
 interface ActionData {
   foodName?: string;
-  portionSize?: string;
-  calories?: number;
-  humanEquivalent?: number;
+  portions?: {
+    [key: string]: {
+      calories: number;
+      dogIntakePercentage: number;
+      humanEquivalent: number;
+      humanIntakePercentage: number;
+    }
+  };
   error?: string;
-}
-
-function getPortionFactor(portion: string): number {
-  switch (portion) {
-    case 'bite': return 5;
-    case 'piece': return 15;
-    case 'slice': return 30;
-    default: return 10;
-  }
 }
 
 function findMatchingFood(foodData: FoodData[], searchTerm: string): FoodData | undefined {
@@ -77,46 +73,52 @@ export const loader: LoaderFunction = async () => {
 
 export const action: ActionFunction = async ({ request }) => {
   const form = await request.formData();
-  console.log('Received form data:', Object.fromEntries(form));
-
   const foodName = form.get('foodName');
-  const portionSize = form.get('portionSize');
   const foodDataJson = form.get('foodData');
   
-  console.log('Action function called');
-  console.log('foodName:', foodName);
-  console.log('portionSize:', portionSize);
-  console.log('foodDataJson:', foodDataJson ? (foodDataJson as string).substring(0, 100) + '...' : 'undefined');
-
-  if (typeof foodName !== 'string' || typeof portionSize !== 'string' || typeof foodDataJson !== 'string') {
-    console.log('Invalid input types');
+  if (typeof foodName !== 'string' || typeof foodDataJson !== 'string') {
     return json<ActionData>({ error: "Invalid input" });
   }
 
   let foodData;
   try {
     foodData = JSON.parse(foodDataJson) as FoodData[];
-    console.log('Parsed foodData length:', foodData.length);
   } catch (error) {
-    console.error('Error parsing foodDataJson:', error);
     return json<ActionData>({ error: "Invalid food data" });
   }
 
   const food = findMatchingFood(foodData, foodName);
   
   if (food) {
-    console.log('Matching food found:', food);
-    const portionFactor = getPortionFactor(portionSize);
-    const calories = (parseFloat(food.Cals_per100grams) / 100) * portionFactor;
-    const humanEquivalent = (calories / 400) * 2200;
+    const caloriesPer100g = parseFloat(food.Cals_per100grams);
+    const portions = {
+      bite: 5,
+      piece: 30,
+      slice: 50
+    };
 
-    console.log('Calculation successful');
-    console.log('Calories:', calories);
-    console.log('Human equivalent:', humanEquivalent);
-    return json<ActionData>({ foodName: food.FoodItem, portionSize, calories, humanEquivalent });
+    const results: ActionData['portions'] = {};
+
+    for (const [portionName, grams] of Object.entries(portions)) {
+      const calories = (caloriesPer100g / 100) * grams;
+      const dogIntakePercentage = (calories / 400) * 100;
+      const humanEquivalent = (dogIntakePercentage / 100) * 2200;
+      const humanIntakePercentage = (humanEquivalent / 2200) * 100;
+
+      results[portionName] = {
+        calories,
+        dogIntakePercentage,
+        humanEquivalent,
+        humanIntakePercentage
+      };
+    }
+
+    return json<ActionData>({ 
+      foodName: food.FoodItem,
+      portions: results
+    });
   }
 
-  console.log('Food not found');
   return json<ActionData>({ error: "Food not found" });
 };
 
@@ -124,7 +126,6 @@ export default function Index() {
   const { foodData } = useLoaderData<LoaderData>();
   const actionData = useActionData<ActionData>();
   const [chartData, setChartData] = useState<ChartData<'bar'> | null>(null);
-  const [portionSize, setPortionSize] = useState('bite');
   const [error, setError] = useState<string | null>(null);
   const [foodName, setFoodName] = useState('');
   const fetcher = useFetcher<ActionData>();
@@ -137,14 +138,15 @@ export default function Index() {
     console.log('Action data updated:', actionData);
     if (actionData && 'error' in actionData) {
       setError(actionData.error || null);
-    } else if (actionData && !('error' in actionData) && actionData.calories && actionData.humanEquivalent) {
+    } else if (actionData && !('error' in actionData) && actionData.portions) {
       setError(null);
+      const portionData = Object.values(actionData.portions)[0]; // Use the first portion for the chart
       setChartData({
         labels: ['Dog Calories', 'Human Equivalent'],
         datasets: [
           {
             label: 'Calories',
-            data: [actionData.calories, actionData.humanEquivalent],
+            data: [portionData.calories, portionData.humanEquivalent],
             backgroundColor: ['rgba(86, 235, 255, 0.5)', 'rgba(254, 224, 64, 0.5)'],
             borderColor: ['rgba(86, 235, 255, 1)', 'rgba(254, 224, 64, 1)'],
             borderWidth: 1,
@@ -156,21 +158,22 @@ export default function Index() {
 
   useEffect(() => {
     setError(null);
-  }, [foodName, portionSize]);
+  }, [foodName]);
 
   useEffect(() => {
     console.log('Fetcher state:', fetcher.state);
     console.log('Fetcher data:', fetcher.data);
     if (fetcher.data && 'error' in fetcher.data) {
       setError(fetcher.data.error || null);
-    } else if (fetcher.data && !('error' in fetcher.data) && fetcher.data.calories && fetcher.data.humanEquivalent) {
+    } else if (fetcher.data && !('error' in fetcher.data) && fetcher.data.portions) {
       setError(null);
+      const portionData = Object.values(fetcher.data.portions)[0]; // Use the first portion for the chart
       setChartData({
         labels: ['Dog Calories', 'Human Equivalent'],
         datasets: [
           {
             label: 'Calories',
-            data: [fetcher.data.calories, fetcher.data.humanEquivalent],
+            data: [portionData.calories, portionData.humanEquivalent],
             backgroundColor: ['rgba(86, 235, 255, 0.5)', 'rgba(254, 224, 64, 0.5)'],
             borderColor: ['rgba(86, 235, 255, 1)', 'rgba(254, 224, 64, 1)'],
             borderWidth: 1,
@@ -221,10 +224,8 @@ export default function Index() {
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    console.log('Form submitted');
     const formData = new FormData(event.currentTarget);
     formData.append('foodData', JSON.stringify(foodData));
-    console.log('Submitting form data:', Object.fromEntries(formData));
     fetcher.submit(formData, { method: 'post' });
   };
 
@@ -232,7 +233,7 @@ export default function Index() {
     <div className="bg-gradient-to-br from-gray-900 to-gray-800 min-h-screen flex items-center justify-center px-4 py-12">
       <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-md transition-all duration-300 ease-in-out transform hover:scale-105">
         <h1 className="text-4xl font-bold mb-4 text-center text-waggel-blue">Pet Food Calorie Calculator</h1>
-        <p className="text-white text-center mb-8">Easily compare the caloric impact of human food on your dog's diet. Simply enter a food item and portion size to see the equivalent calories for humans.</p>
+        <p className="text-white text-center mb-8">Easily compare the caloric impact of human food on your dog's diet. Simply enter a food item to see the equivalent calories for humans.</p>
         <fetcher.Form method="post" className="space-y-6" onSubmit={handleSubmit}>
           <div className="relative">
             <input
@@ -245,19 +246,6 @@ export default function Index() {
             />
             <svg className="w-6 h-6 text-gray-400 absolute right-3 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
           </div>
-          <div className="relative">
-            <select
-              name="portionSize"
-              value={portionSize}
-              onChange={(e) => setPortionSize(e.target.value)}
-              className="w-full p-4 border-2 rounded-lg bg-gray-700 border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-waggel-blue focus:border-transparent appearance-none transition-all duration-300 ease-in-out"
-            >
-              <option value="bite">Bite</option>
-              <option value="piece">Piece</option>
-              <option value="slice">Slice</option>
-            </select>
-            <svg className="w-6 h-6 text-gray-400 absolute right-3 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-          </div>
           <button
             type="submit"
             disabled={fetcher.state === 'submitting'}
@@ -269,14 +257,28 @@ export default function Index() {
         {error && (
           <p className="mt-6 text-center text-red-500 bg-red-100 border border-red-400 rounded-lg p-3 animate-pulse">{error}</p>
         )}
-        {fetcher.data && !('error' in fetcher.data) && fetcher.data.foodName && fetcher.data.portionSize && fetcher.data.humanEquivalent && (
+        {fetcher.data && !('error' in fetcher.data) && fetcher.data.foodName && fetcher.data.portions && (
           <div className="mt-8 bg-gray-700 rounded-lg p-6 shadow-inner transition-all duration-300 ease-in-out">
-            <p className="text-center font-bold text-white mb-4 text-lg">
-              For a dog, a {fetcher.data.portionSize} of {fetcher.data.foodName} is the human equivalent of:
-            </p>
-            <p className="text-center text-4xl font-extrabold text-waggel-blue mb-6 animate-pulse">
-              {Math.round(fetcher.data.humanEquivalent)} calories
-            </p>
+            <h2 className="text-center font-bold text-white mb-4 text-xl">
+              Calorie comparison for {fetcher.data.foodName}:
+            </h2>
+            {Object.entries(fetcher.data.portions).map(([portionName, data]) => (
+              <div key={portionName} className="mb-6 border-b border-gray-600 pb-4">
+                <h3 className="text-center font-bold text-waggel-blue mb-2 text-lg capitalize">
+                  {portionName}
+                </h3>
+                <p className="text-center text-white">
+                  <span className="font-semibold">Dog:</span> {Math.round(data.calories)} calories
+                  <br />
+                  ({data.dogIntakePercentage.toFixed(2)}% of daily intake)
+                </p>
+                <p className="text-center text-white mt-2">
+                  <span className="font-semibold">Human equivalent:</span> {Math.round(data.humanEquivalent)} calories
+                  <br />
+                  ({data.humanIntakePercentage.toFixed(2)}% of daily intake)
+                </p>
+              </div>
+            ))}
             <ClientOnly fallback={<div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-waggel-blue"></div></div>}>
               {() => chartData && (
                 <div className="mt-6 bg-gray-800 rounded-lg p-4 shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105" style={{height: '300px'}}>
