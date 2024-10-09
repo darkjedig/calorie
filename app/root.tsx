@@ -1,7 +1,6 @@
 import type { MetaFunction, LinksFunction } from "@remix-run/node";
 import {
   Links,
-  LiveReload,
   Meta,
   Outlet,
   Scripts,
@@ -30,7 +29,7 @@ export default function App() {
         </main>
         <ScrollRestoration />
         <Scripts />
-        <LiveReload port={8006} />
+        {/* LiveReload component removed */}
       </body>
     </html>
   );

@@ -9,6 +9,6 @@ module.exports = {
     v2_routeConvention: true,
     v2_dev: true,
   },
-  devServerPort: 8002
-  
+  serverDependenciesToBundle: ["openai"],
+  devServerPort: 8002, // Add this line
 };
