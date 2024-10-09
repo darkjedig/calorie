@@ -10,8 +10,11 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 interface ActionData {
   foodName?: string;
+  dogPortion?: string;
   dogCalories?: number;
+  dogIntakePercentage?: number;
   humanEquivalent?: number;
+  humanFoodEquivalent?: string;
   explanation?: string;
   error?: string;
 }
@@ -32,11 +35,20 @@ export const action: ActionFunction = async ({ request }) => {
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        {role: "system", content: "You are a helpful assistant that calculates dog food calorie equivalents for humans. Provide the dog calories, human equivalent calories, and a brief explanation."},
+        {role: "system", content: `You are a helpful assistant that calculates dog food calorie equivalents for humans. Use the following information as a guide:
+        - A dog should consume about 400 calories per day (based on a 10kg dog maintaining weight).
+        - An average human should consume about 2200 calories per day to maintain weight.
+        - Provide calorie information for a bite, piece, or whole food item, as appropriate.
+        - Calculate how the dog's calorie intake from this food compares to a human's daily intake percentage-wise.
+        - Provide a relatable human food equivalent that matches the percentage of daily intake for the dog.
+        Example: If a dog eats something that's 25% of its daily calories, provide a human equivalent that's also about 25% of a human's daily calories.`},
         {role: "user", content: `Calculate the calorie equivalent for a dog eating ${foodName}. Please format your response as follows:
+        Dog Portion: [size/amount]
         Dog Calories: [number]
+        Dog Daily Intake Percentage: [percentage]
         Human Equivalent Calories: [number]
-        Explanation: [brief explanation]`}
+        Human Food Equivalent: [comparable human food item or items]
+        Explanation: [brief explanation of the comparison]`}
       ],
     });
 
@@ -50,19 +62,25 @@ export const action: ActionFunction = async ({ request }) => {
     console.log('OpenAI Response Content:', result);
 
     // More flexible parsing
+    const dogPortionMatch = result.match(/Dog Portion:\s*(.+)/i);
     const dogCaloriesMatch = result.match(/Dog Calories:\s*(\d+)/i);
+    const dogIntakePercentageMatch = result.match(/Dog Daily Intake Percentage:\s*([\d.]+)%/i);
     const humanEquivalentMatch = result.match(/Human Equivalent Calories:\s*(\d+)/i);
+    const humanFoodEquivalentMatch = result.match(/Human Food Equivalent:\s*(.+)/i);
     const explanationMatch = result.match(/Explanation:\s*(.+?)(?=\n|$)/s);
 
-    if (!dogCaloriesMatch || !humanEquivalentMatch) {
+    if (!dogPortionMatch || !dogCaloriesMatch || !dogIntakePercentageMatch || !humanEquivalentMatch || !humanFoodEquivalentMatch) {
       console.error('Failed to parse OpenAI response:', result);
       throw new Error("Unable to extract calorie information from OpenAI response");
     }
 
     return json<ActionData>({
       foodName,
+      dogPortion: dogPortionMatch[1].trim(),
       dogCalories: parseInt(dogCaloriesMatch[1]),
+      dogIntakePercentage: parseFloat(dogIntakePercentageMatch[1]),
       humanEquivalent: parseInt(humanEquivalentMatch[1]),
+      humanFoodEquivalent: humanFoodEquivalentMatch[1].trim(),
       explanation: explanationMatch ? explanationMatch[1].trim() : "No explanation provided.",
     });
   } catch (error) {
@@ -139,10 +157,10 @@ export default function Index() {
           },
         ],
       });
-      setError(null); // Clear any previous errors
+      setError(null);
     } else if (fetcher.data && 'error' in fetcher.data) {
       setError(fetcher.data.error || 'An unknown error occurred');
-      setChartData(null); // Clear chart data if there's an error
+      setChartData(null);
     }
   }, [fetcher.data, fetcher.state]);
 
@@ -150,7 +168,7 @@ export default function Index() {
     <div className="bg-gradient-to-br from-gray-900 to-gray-800 min-h-screen flex items-center justify-center px-4 py-12">
       <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-md transition-all duration-300 ease-in-out transform hover:scale-105">
         <h1 className="text-4xl font-bold mb-4 text-center text-waggel-blue">Pet Food Calorie Calculator</h1>
-        <p className="text-white text-center mb-8">Easily compare the caloric impact of human food on your dog's diet. Simply enter a food item to see the equivalent calories for humans.</p>
+        <p className="text-white text-center mb-8">Compare the caloric impact of human food on your dog's diet. Enter a food item to see the equivalent impact for humans.</p>
         <fetcher.Form method="post" className="space-y-6" onSubmit={handleSubmit}>
           <div className="relative">
             <input
@@ -178,15 +196,29 @@ export default function Index() {
             <h2 className="text-center font-bold text-white mb-4 text-xl">
               Calorie comparison for {fetcher.data.foodName}:
             </h2>
+            <div className="mb-4">
+              <p className="text-waggel-blue font-bold">Dog Portion:</p>
+              <p className="text-white">{fetcher.data.dogPortion}</p>
+            </div>
             <div className="flex justify-between mb-4">
               <div className="text-center">
                 <p className="text-waggel-blue font-bold">Dog Calories</p>
                 <p className="text-white text-2xl">{fetcher.data.dogCalories}</p>
+                <p className="text-white">
+                  {fetcher.data.dogIntakePercentage !== undefined 
+                    ? `(${fetcher.data.dogIntakePercentage.toFixed(1)}% of daily intake)`
+                    : ''}
+                </p>
               </div>
               <div className="text-center">
                 <p className="text-waggel-blue font-bold">Human Equivalent</p>
                 <p className="text-white text-2xl">{fetcher.data.humanEquivalent}</p>
+                <p className="text-white">calories</p>
               </div>
+            </div>
+            <div className="mb-4">
+              <p className="text-waggel-blue font-bold">Human Food Equivalent:</p>
+              <p className="text-white">{fetcher.data.humanFoodEquivalent}</p>
             </div>
             {fetcher.data.explanation && (
               <p className="text-center text-white mb-6">
