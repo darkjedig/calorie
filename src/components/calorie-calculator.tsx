@@ -182,10 +182,12 @@ export function CalorieCalculator() {
               displayText = `1 ${food.name}`;
             } else if (servings < 2) {
               const roundedServings = Math.round(servings * 2) / 2;
-              displayText = `${roundedServings} ${food.name}${roundedServings !== 1 ? 's' : ''}`;
+              const plural = roundedServings !== 1 && !food.name.endsWith('s') ? 's' : '';
+              displayText = `${roundedServings} ${food.name}${plural}`;
             } else {
               const roundedServings = Math.round(servings);
-              displayText = `${roundedServings} ${food.name}s`;
+              const plural = !food.name.endsWith('s') ? 's' : '';
+              displayText = `${roundedServings} ${food.name}${plural}`;
             }
             
             refs.push({

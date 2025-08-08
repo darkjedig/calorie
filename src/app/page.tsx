@@ -19,7 +19,7 @@ export default function Home() {
             <p className="text-xl text-[#34465b]/80 max-w-3xl mx-auto mt-10">
               Human foods can be surprisingly calorie-dense for dogs. <br /> <br />Use this calculator to see how a portion of a human 
               food (e.g., pizza, cheese, chocolate) translates into your dog&apos;s daily calorie intake and what that would be in human terms. <br /> <br />
-              This helps put "just a bite" into perspective. Choose your dog&apos;s breed, search for a human food, pick a portion 
+              This helps put &quot;just a bite&quot; into perspective. Choose your dog&apos;s breed, search for a human food, pick a portion 
               (bite, piece, slice, or whole item where available), and get a clear comparison.
             </p>
           </header>
