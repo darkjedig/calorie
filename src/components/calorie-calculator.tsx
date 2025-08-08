@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, ChangeEvent, useRef } from 'react'
+import { useState, useEffect, ChangeEvent, useRef, useCallback } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -96,7 +96,7 @@ export function CalorieCalculator() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Define handleSubmit before effects that may depend on it
-  const handleSubmit = () => {
+  const handleSubmit = useCallback((revealResults: boolean = true) => {
     if (selectedFood && selectedBreed && foodData.length > 0) {
       let portionGrams = PORTION_SIZES[portionSize];
       if (portionGrams === -1) {
@@ -312,9 +312,9 @@ export function CalorieCalculator() {
       
       // No fallback needed - the createRelatableFoodRefs function should always return results
       
-      setShowResults(true);
+      if (revealResults) setShowResults(true);
     }
-  };
+  }, [selectedFood, selectedBreed, portionSize, foodData]);
 
   // Effect for closing suggestions on outside click (remains the same)
   useEffect(() => {
@@ -476,9 +476,10 @@ export function CalorieCalculator() {
   // Recalculate results when portion size changes
   useEffect(() => {
     if (showResults && selectedFood && selectedBreed) {
-      handleSubmit();
+      handleSubmit(false);
     }
-  }, [portionSize, showResults, selectedFood, selectedBreed, handleSubmit])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [portionSize])
 
   // Calculate humanPercentageOfDailyIntake for the text display
   let humanPercentageOfDailyIntakeText = "0.0%";
@@ -610,7 +611,7 @@ export function CalorieCalculator() {
         {/* Submit Button */}
         <div className="pt-4">
           <button
-            onClick={handleSubmit}
+            onClick={() => handleSubmit()}
             disabled={!selectedBreed || !selectedFood}
             className="w-full bg-[#56EBFF] hover:bg-[#4DD8F0] disabled:bg-[#C1D8EE] disabled:cursor-not-allowed text-[#181E24] font-semibold py-3 px-6 rounded-lg transition-colors duration-200 shadow-md"
           >
