@@ -4,19 +4,6 @@ import { useState, useEffect, ChangeEvent, useRef, useCallback } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  ResponsiveContainer,
-  Text
-} from 'recharts'
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart"
 
 // Updated Interface for calories.csv
 interface FoodData {
@@ -36,13 +23,7 @@ interface BreedData {
   avg_weight: number
 }
 
-interface ChartDataPoint {
-  name: string;
-  barValue: number; 
-  onBarLabel: string; 
-  tooltipInfo: string; 
-  fill: string; 
-}
+// Chart removed
 
 // Type for human food references
 interface Ref {
@@ -61,25 +42,7 @@ const PORTION_SIZES = {
 const HUMAN_DAILY_CALORIES = 2200
 const CALORIES_PER_POUND_PER_DAY = 30
 
-interface CustomBarLabelProps {
-  x?: number
-  y?: number
-  width?: number
-  value?: number
-  index?: number
-  data: { onBarLabel?: string }[]
-}
-
-const CustomBarLabel = (props: CustomBarLabelProps) => {
-  const { x = 0, y = 0, width = 0, value, index, data } = props;
-  if (value === null || value === undefined || index === undefined || !data || !data[index] || !data[index].onBarLabel) return null;
-  const labelText = data[index]?.onBarLabel;
-  return (
-    <Text x={x + width / 2} y={y} dy={-10} textAnchor="middle" fill="#34465b" fontSize={12}>
-      {labelText}
-    </Text>
-  );
-};
+// Chart removed
 
 export function CalorieCalculator() {
   const [foodName, setFoodName] = useState('')
@@ -88,7 +51,7 @@ export function CalorieCalculator() {
   const [foodData, setFoodData] = useState<FoodData[]>([])
   const [breedData, setBreedData] = useState<BreedData[]>([])
   const [selectedFood, setSelectedFood] = useState<FoodData | null>(null)
-  const [chartData, setChartData] = useState<ChartDataPoint[]>([])
+  // Chart removed
   const [suggestions, setSuggestions] = useState<FoodData[]>([])
   const [humanRefs, setHumanRefs] = useState<Ref[]>([]); 
   const [showResults, setShowResults] = useState(false); // New state to control when results show
@@ -108,148 +71,82 @@ export function CalorieCalculator() {
       const dogPercentageImpact = (caloriesForDog / breedDailyCalories) * 100;
       const humanEquivalentKcal = (dogPercentageImpact / 100) * HUMAN_DAILY_CALORIES;
 
-      setChartData([
-        {
-          name: `${selectedBreed.name}'s Intake`,
-          barValue: dogPercentageImpact,
-          onBarLabel: `${dogPercentageImpact.toFixed(1)}%`,
-          tooltipInfo: `${caloriesForDog.toFixed(1)} kcal (${dogPercentageImpact.toFixed(1)}% of ${selectedBreed.name}'s daily limit)`,
-          fill: "#56EBFF",
-        },
-        {
-          name: 'Human Equivalent Impact',
-          barValue: (humanEquivalentKcal / HUMAN_DAILY_CALORIES) * 100,
-          onBarLabel: `${humanEquivalentKcal.toFixed(0)} kcal`,
-          tooltipInfo: `${humanEquivalentKcal.toFixed(0)} kcal (${((humanEquivalentKcal / HUMAN_DAILY_CALORIES) * 100).toFixed(1)}% of human daily limit)`,
-          fill: "#FBBC43",
-        },
-      ]);
 
       // Create relatable refs using humanEquivalentKcal (existing logic below remains)
       const createRelatableFoodRefs = (targetCalories: number) => {
         const commonFoods = [
           { name: 'Pizza Slice', calories: 285 },
+          { name: 'Cheeseburger', calories: 540 },
           { name: 'Hamburger', calories: 250 },
           { name: 'Hot Dog', calories: 150 },
           { name: 'Chicken Breast', calories: 165 },
+          { name: 'Fish and Chips', calories: 585 },
+          { name: 'Sandwich', calories: 320 },
+          { name: 'Bacon', calories: 43 },
+          { name: 'Sausage', calories: 300 },
+          { name: 'French Fries', calories: 365 },
           { name: 'Apple', calories: 95 },
           { name: 'Banana', calories: 105 },
           { name: 'Orange', calories: 62 },
           { name: 'Egg', calories: 70 },
           { name: 'Slice of Bread', calories: 80 },
-          { name: 'Cup of Rice', calories: 200 },
-          { name: 'Cup of Pasta', calories: 200 },
-          { name: 'Cup of Milk', calories: 150 },
-          { name: 'Cup of Yogurt', calories: 150 },
-          { name: 'Cup of Ice Cream', calories: 250 },
+          { name: 'Slice of Toast', calories: 80 },
+          { name: 'Bowl of Rice', calories: 200 },
+          { name: 'Bowl of Pasta', calories: 200 },
+          { name: 'Glass of Milk', calories: 150 },
+          { name: 'Yogurt', calories: 150 },
+          { name: 'Ice Cream Scoop', calories: 250 },
           { name: 'Chocolate Bar', calories: 240 },
           { name: 'Cookie', calories: 50 },
+          { name: 'Biscuit', calories: 50 },
           { name: 'Can of Soda', calories: 150 },
           { name: 'Beer', calories: 150 },
           { name: 'Glass of Wine', calories: 125 },
-          { name: 'Cup of Popcorn', calories: 30 },
-          { name: 'Handful of Chips', calories: 150 },
-          { name: 'Cup of French Fries', calories: 365 },
-          { name: 'Cup of Broccoli', calories: 55 },
-          { name: 'Cup of Carrots', calories: 52 },
-          { name: 'Cup of Sweet Potato', calories: 180 },
-          { name: 'Cup of Mashed Potatoes', calories: 237 },
-          { name: 'Cup of Oatmeal', calories: 150 },
-          { name: 'Cup of Cereal', calories: 120 },
-          { name: 'Cup of Granola', calories: 400 },
-          { name: 'Cup of Nuts', calories: 800 },
-          { name: 'Cup of Peanut Butter', calories: 1517 },
-          { name: 'Cup of Olive Oil', calories: 1920 },
-          { name: 'Cup of Butter', calories: 1628 },
-          { name: 'Cup of Honey', calories: 1031 },
-          { name: 'Cup of Sugar', calories: 774 },
-          { name: 'Cup of Flour', calories: 455 },
-          { name: 'Cup of Chocolate Chips', calories: 805 },
-          { name: 'Cup of Raisins', calories: 434 },
-          { name: 'Cup of Dried Cranberries', calories: 400 },
-          { name: 'Cup of Dried Apricots', calories: 313 },
-          { name: 'Cup of Dried Figs', calories: 371 },
-          { name: 'Cup of Dried Prunes', calories: 407 },
-          { name: 'Cup of Dried Dates', calories: 502 },
-          { name: 'Cup of Dried Mango', calories: 319 },
-          { name: 'Cup of Dried Pineapple', calories: 434 },
-          { name: 'Cup of Dried Papaya', calories: 359 },
-          { name: 'Cup of Dried Kiwi', calories: 359 },
-          { name: 'Cup of Dried Strawberries', calories: 434 },
-          { name: 'Cup of Dried Blueberries', calories: 434 },
-          { name: 'Cup of Dried Raspberries', calories: 434 },
-          { name: 'Cup of Dried Blackberries', calories: 434 },
-          { name: 'Cup of Dried Cherries', calories: 434 },
-          { name: 'Cup of Dried Peaches', calories: 434 },
-          { name: 'Cup of Dried Pears', calories: 434 },
-          { name: 'Cup of Dried Plums', calories: 434 },
-          { name: 'Cup of Dried Grapes', calories: 434 },
-          { name: 'Cup of Dried Oranges', calories: 434 },
-          { name: 'Cup of Dried Lemons', calories: 434 },
-          { name: 'Cup of Dried Limes', calories: 434 },
-          { name: 'Cup of Dried Grapefruit', calories: 434 },
-          { name: 'Cup of Dried Tangerines', calories: 434 },
-          { name: 'Cup of Dried Clementines', calories: 434 },
-          { name: 'Cup of Dried Blood Oranges', calories: 434 },
-          { name: 'Cup of Dried Minneola', calories: 434 },
-          { name: 'Cup of Dried Jujube', calories: 434 },
-          { name: 'Cup of Dried Lychees', calories: 434 },
-          { name: 'Cup of Dried Mango', calories: 434 },
-          { name: 'Cup of Dried Passion Fruit', calories: 434 },
-          { name: 'Cup of Dried Plantains', calories: 434 },
-          { name: 'Cup of Dried Pomegranate', calories: 434 },
-          { name: 'Cup of Dried Quince', calories: 434 },
-          { name: 'Cup of Dried Rambutan', calories: 434 },
-          { name: 'Cup of Dried Rhubarb', calories: 434 },
-          { name: 'Cup of Dried Starfruit', calories: 434 },
-          { name: 'Cup of Dried Tamarind', calories: 434 },
-          { name: 'Cup of Dried Watermelon', calories: 434 },
-          { name: 'Cup of Dried Acerola', calories: 434 },
-          { name: 'Cup of Dried Asian Pear', calories: 434 },
-          { name: 'Cup of Dried Avocado', calories: 434 },
-          { name: 'Cup of Dried Breadfruit', calories: 434 },
-          { name: 'Cup of Dried Cantaloupe Melon', calories: 434 },
-          { name: 'Cup of Dried Casaba Melon', calories: 434 },
-          { name: 'Cup of Dried Cherimoya', calories: 434 },
-          { name: 'Cup of Dried Dragon Fruit', calories: 434 },
-          { name: 'Cup of Dried Durian', calories: 434 },
-          { name: 'Cup of Dried Feijoa', calories: 434 },
-          { name: 'Cup of Dried Galia Melon', calories: 434 },
-          { name: 'Cup of Dried Grapefruit', calories: 434 },
-          { name: 'Cup of Dried Guava', calories: 434 },
-          { name: 'Cup of Dried Honeydew', calories: 434 },
-          { name: 'Cup of Dried Jackfruit', calories: 434 },
-          { name: 'Cup of Dried Mulberries', calories: 434 },
-          { name: 'Cup of Dried Nectarine', calories: 434 },
-          { name: 'Cup of Dried Olives', calories: 434 },
-          { name: 'Cup of Dried Papaya', calories: 434 },
-          { name: 'Cup of Dried Peach', calories: 434 },
-          { name: 'Cup of Dried Persimmon', calories: 434 },
-          { name: 'Cup of Dried Physalis', calories: 434 },
-          { name: 'Cup of Dried Pineapple', calories: 434 },
-          { name: 'Cup of Dried Plum', calories: 434 },
-          { name: 'Cup of Dried Pomegranate', calories: 434 },
-          { name: 'Cup of Dried Quince', calories: 434 },
-          { name: 'Cup of Dried Raisins', calories: 434 },
-          { name: 'Cup of Dried Raspberries', calories: 434 },
-          { name: 'Cup of Dried Strawberries', calories: 434 },
-          { name: 'Cup of Dried Tamarind', calories: 434 },
-          { name: 'Cup of Dried Tangerine', calories: 434 },
-          { name: 'Cup of Dried Watermelon', calories: 434 }
+          { name: 'Bag of Popcorn', calories: 30 },
+          { name: 'Bag of Chips', calories: 150 },
+          { name: 'Mashed Potatoes', calories: 237 },
+          { name: 'Bowl of Cereal', calories: 120 },
+          { name: 'Bowl of Oatmeal', calories: 150 },
+          { name: 'Cheese', calories: 113 },
+          { name: 'Crackers', calories: 80 },
+          { name: 'Nuts', calories: 160 },
+          { name: 'Granola Bar', calories: 150 },
+          { name: 'Peanut Butter Sandwich', calories: 350 },
+          { name: 'Donut', calories: 250 },
+          { name: 'Muffin', calories: 360 },
+          { name: 'Pancake', calories: 175 },
+          { name: 'Waffle', calories: 220 },
+          { name: 'Slice of Cake', calories: 235 },
+          { name: 'Slice of Pie', calories: 320 },
+          { name: 'Bagel', calories: 250 },
+          { name: 'Croissant', calories: 230 },
+          { name: 'Danish Pastry', calories: 330 },
+          { name: 'Energy Bar', calories: 200 },
+          { name: 'Protein Bar', calories: 190 },
+          { name: 'Candy Bar', calories: 240 },
+          { name: 'Ice Cream Bar', calories: 160 },
+          { name: 'Milkshake', calories: 530 },
+          { name: 'Smoothie', calories: 180 },
+          { name: 'Latte', calories: 190 },
+          { name: 'Cappuccino', calories: 120 },
+          { name: 'Meatball', calories: 50 },
+          { name: 'Chicken Wing', calories: 100 },
+          { name: 'Chicken Nugget', calories: 50 },
+          { name: 'Onion Ring', calories: 40 },
+          { name: 'Garlic Bread', calories: 150 },
+          { name: 'Breadstick', calories: 120 },
+          { name: 'Pretzel', calories: 380 }
         ];
 
-        // Filter to only include truly relatable foods (no cups of ingredients)
-        const relatableFoods = commonFoods.filter(food => 
-          !food.name.includes('Cup of') || 
-          ['Cup of Ice Cream', 'Cup of French Fries', 'Cup of Popcorn'].includes(food.name)
-        );
+        // Use all foods as they're now realistic
+        const relatableFoods = commonFoods;
         
         // Prioritize the most relatable foods first
         const priorityFoods = [
-          'Pizza Slice', 'Hamburger', 'Hot Dog', 'Apple', 'Banana', 'Orange', 
+          'Pizza Slice', 'Cheeseburger', 'Hamburger', 'Hot Dog', 'Sandwich', 'Apple', 'Banana', 'Orange', 
           'Egg', 'Slice of Bread', 'Chocolate Bar', 'Cookie', 'Can of Soda', 
-          'Beer', 'Glass of Wine', 'Cup of Ice Cream', 'Cup of French Fries',
-          'Cup of Popcorn', 'Handful of Chips'
+          'Beer', 'Glass of Wine', 'Ice Cream Scoop', 'French Fries',
+          'Bag of Popcorn', 'Bag of Chips', 'Chicken Wing', 'Chicken Nugget'
         ];
         
         // Sort foods by priority first, then by how close to target calories
@@ -515,8 +412,11 @@ export function CalorieCalculator() {
           color: #181E24; /* Penny Black for contrast */
         }
       `}</style>
-      <div className="mb-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-        Human foods can be dangerous for pets. This tool is for education only and not veterinary advice. Avoid foods marked as toxic and consult your vet if unsure.
+      <div className="mb-6">
+        <h2 className="text-2xl font-semibold text-[#34465b] mb-4">How much could this treat impact your dog?</h2>
+        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          Human foods can be dangerous for pets. This tool is for education only and not veterinary advice. Avoid foods marked as toxic and consult your vet if unsure.
+        </div>
       </div>
       <div className="grid gap-6 p-6 bg-[#EEF7FD] rounded-xl shadow-lg">
         <div className="space-y-3">
@@ -600,7 +500,7 @@ export function CalorieCalculator() {
               <SelectItem value="slice">Slice (30g)</SelectItem>
               {selectedFood && selectedFood.Average_Whole_Item_Weight_g && Number(selectedFood.Average_Whole_Item_Weight_g) > 0 && (
                 <SelectItem value="whole_item">
-                  Whole {selectedFood.FoodItem} ({selectedFood.Average_Whole_Item_Weight_g}g)
+                  Slice of {selectedFood.FoodItem} ({selectedFood.Average_Whole_Item_Weight_g}g)
                 </SelectItem>
               )}
               <SelectItem value="100g Portion">100g Portion</SelectItem>
@@ -625,10 +525,13 @@ export function CalorieCalculator() {
         </div>
       </div>
 
-      {showResults && selectedFood && selectedBreed && chartData.length > 0 && (
+      {showResults && selectedFood && selectedBreed && (
         <div className="space-y-6">
+          <div className="mb-6">
+            <h2 className="text-2xl font-semibold text-[#34465b] mb-4">What&apos;s the human equivalent?</h2>
+          </div>
           <div className="p-6 bg-white rounded-xl shadow-lg border-2 border-[#C1D8EE]">
-            <h3 className="text-xl font-semibold text-[#34465b] mb-4">Results</h3>
+            <h3 className="text-xl font-semibold text-[#34465b] mb-4">Results and safety guidance</h3>
             <div className="space-y-2">
               <p className="text-[#34465b]">
                 <span className="font-medium">Breed:</span> {selectedBreed.name} (Average weight: {selectedBreed.avg_weight.toFixed(1)} lbs)
@@ -642,7 +545,7 @@ export function CalorieCalculator() {
               <p className="text-[#34465b]">
                 <span className="font-medium">Portion:</span> {
                   portionSize === 'whole_item' 
-                    ? `Whole ${selectedFood.FoodItem} (${selectedFood.Average_Whole_Item_Weight_g}g)`
+                    ? `Slice of ${selectedFood.FoodItem} (${selectedFood.Average_Whole_Item_Weight_g}g)`
                     : `${portionSize.charAt(0).toUpperCase() + portionSize.slice(1)} (${currentPortionGrams}g)`
                 }
               </p>
@@ -678,28 +581,7 @@ export function CalorieCalculator() {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-xl shadow-lg border-2 border-[#C1D8EE]">
-            <h3 className="text-xl font-semibold text-[#34465b] mb-4">Impact Comparison</h3>
-            <div className="h-[400px] w-full">
-              <ChartContainer config={{}} className="w-full h-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart accessibilityLayer data={chartData} margin={{ top: 30, right: 20, left: -10, bottom: 5 }}>
-                    <XAxis dataKey="name" stroke="#34465b" tickLine={false} axisLine={false} />
-                    <YAxis stroke="#34465b" unit="%" tickLine={false} axisLine={false} domain={[0, Math.max(10, Math.ceil(Math.max(...chartData.map(d => d.barValue)) + 2))]} />
-                    <ChartTooltip 
-                      cursor={false}
-                      content={<ChartTooltipContent 
-                                indicator="line" 
-                                labelFormatter={(label, payload) => payload?.[0]?.payload.name || label}
-                                formatter={(value, name, item) => [item.payload?.tooltipInfo, null]}
-                              />}
-                    />
-                    <Bar dataKey="barValue" radius={[4, 4, 0, 0]} label={<CustomBarLabel data={chartData} />} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-            </div>
-          </div>
+          {/* Impact chart removed */}
         </div>
       )}
     </div>
