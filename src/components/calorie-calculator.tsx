@@ -693,9 +693,7 @@ export function CalorieCalculator() {
                                 formatter={(value, name, item) => [item.payload?.tooltipInfo, null]}
                               />}
                     />
-                    <Bar dataKey="barValue" radius={[4, 4, 0, 0]} >
-                      <CustomBarLabel data={chartData} /> 
-                    </Bar>
+                    <Bar dataKey="barValue" radius={[4, 4, 0, 0]} label={<CustomBarLabel data={chartData} />} />
                   </BarChart>
                 </ResponsiveContainer>
               </ChartContainer>
