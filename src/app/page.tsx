@@ -16,7 +16,7 @@ export default function Home() {
               Dog-to-Human Calorie Calculator
             </h1>
             <p className="text-xl text-[#34465b]/80 max-w-2xl mx-auto">
-              Understand how human food portions impact your dog's daily caloric needs, and see what that would mean for you.
+              Understand how human food portions impact your dog&#39;s daily caloric needs, and see what that would mean for you.
             </p>
           </div>
           <div className="relative">

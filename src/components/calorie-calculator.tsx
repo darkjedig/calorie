@@ -61,8 +61,17 @@ const PORTION_SIZES = {
 const HUMAN_DAILY_CALORIES = 2200
 const CALORIES_PER_POUND_PER_DAY = 30
 
-const CustomBarLabel = (props: any) => {
-  const { x, y, width, value, index, data } = props;
+interface CustomBarLabelProps {
+  x?: number
+  y?: number
+  width?: number
+  value?: number
+  index?: number
+  data: { onBarLabel?: string }[]
+}
+
+const CustomBarLabel = (props: CustomBarLabelProps) => {
+  const { x = 0, y = 0, width = 0, value, index, data } = props;
   if (value === null || value === undefined || index === undefined || !data || !data[index] || !data[index].onBarLabel) return null;
   const labelText = data[index]?.onBarLabel;
   return (
@@ -86,222 +95,37 @@ export function CalorieCalculator() {
   const suggestionsContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Effect for closing suggestions on outside click (remains the same)
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        suggestionsContainerRef.current &&
-        !suggestionsContainerRef.current.contains(event.target as Node) &&
-        inputRef.current &&
-        !inputRef.current.contains(event.target as Node)
-      ) {
-        setSuggestions([]);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [suggestionsContainerRef, inputRef]);
-
-  // Fetch breeds data
-  useEffect(() => {
-    fetch('/data/breeds.csv')
-      .then((response) => response.text())
-      .then((text) => {
-        const rows = text.trim().split('\n').slice(1); // Skip header
-        const data = rows
-          .map((row) => {
-            const parts = row.split(',');
-            if (parts.length < 3) return null; // Need at least 3 columns: name, min_weight, max_weight
-            
-            const name = parts[0]?.trim(); // Breed name is in first column
-            const minWeightStr = parts[1]?.trim(); // min_weight column (second column)
-            const maxWeightStr = parts[2]?.trim(); // max_weight column (third column)
-            
-            if (!name || !minWeightStr || !maxWeightStr) return null;
-            
-            const minWeight = parseFloat(minWeightStr);
-            const maxWeight = parseFloat(maxWeightStr);
-            
-            if (isNaN(minWeight) || isNaN(maxWeight) || minWeight <= 0 || maxWeight <= 0) return null;
-            
-            return {
-              name: name,
-              min_weight: minWeight,
-              max_weight: maxWeight,
-              avg_weight: (minWeight + maxWeight) / 2
-            };
-          })
-          .filter((item): item is BreedData => item !== null)
-          .sort((a, b) => a.name.localeCompare(b.name)); // Sort alphabetically
-        
-        console.log("Parsed breed data count:", data.length);
-        setBreedData(data);
-      })
-      .catch(error => console.error("Error fetching or parsing breeds.csv:", error));
-  }, []);
-
-  // Updated CSV Fetching Effect for calories.csv
-  useEffect(() => {
-    fetch('/data/calories.csv')
-      .then((response) => response.text())
-      .then((text) => {
-        const rows = text.trim().split('\n').slice(1).filter(row => row.trim() !== ''); // Skip header
-        
-        const data = rows
-          .map((row) => {
-            const parts = row.split(',');
-            
-            if (parts.length < 5) {
-              console.warn('Skipping malformed CSV row (not enough columns):', row);
-              return null;
-            }
-            
-            const foodCategory = parts[0]?.trim();
-            const foodItem = parts[1]?.trim();
-            const per100grams = parts[2]?.trim();
-            const caloriesStr = parts[3]?.trim();
-            const kjStr = parts[4]?.trim();
-            const wholeItemWeightStr = parts[5]?.trim();
-            const warningStr = parts[6]?.trim() || '';
-
-            if (!foodItem || !caloriesStr) {
-              console.warn('Skipping row due to missing food item or calories:', row);
-              return null;
-            }
-
-            // Extract numeric value from calories string (e.g., "62 cal" -> "62" or just "62")
-            let calories = caloriesStr;
-            
-            // Check if it's in "62 cal" format
-            const caloriesMatch = caloriesStr.match(/(\d+)\s*cal/);
-            if (caloriesMatch) {
-              calories = caloriesMatch[1];
-            } else {
-              // If no "cal" suffix, assume it's just the number
-              calories = caloriesStr;
-            }
-            
-            if (isNaN(Number(calories))) {
-              console.warn('Skipping row due to invalid calorie number:', row);
-              return null;
-            }
-
-            return {
-              FoodCategory: foodCategory,
-              FoodItem: foodItem,
-              per100grams: per100grams,
-              Cals_per100grams: calories,
-              KJ_per100grams: kjStr,
-              Average_Whole_Item_Weight_g: wholeItemWeightStr || '',
-              DogWarning: warningStr || '',
-            };
-          })
-          .filter((item): item is FoodData => item !== null);
-        
-        console.log("Parsed food data count:", data.length);
-        console.log("Sample foods:", data.slice(0, 10).map(f => f.FoodItem));
-        
-        // Debug: Check for foods with whole item weights
-        const foodsWithWeights = data.filter(f => f && f.Average_Whole_Item_Weight_g && Number(f.Average_Whole_Item_Weight_g) > 0);
-        console.log("Foods with whole item weights:", foodsWithWeights.length);
-        console.log("Sample foods with weights:", foodsWithWeights.slice(0, 5).map(f => `${f.FoodItem} (${f.Average_Whole_Item_Weight_g}g)`));
-        
-        setFoodData(data);
-      })
-      .catch(error => console.error("Error fetching or parsing calories.csv:", error));
-  }, [])
-
-  // Updated Suggestions Filtering Effect - no auto-selection
-  useEffect(() => {
-    if (foodName.length > 1 && foodData.length > 0) { 
-      const lowercasedFoodName = foodName.toLowerCase();
-      const matches = foodData
-        .filter((food) =>
-          food.FoodItem && 
-          food.FoodItem.toLowerCase().includes(lowercasedFoodName)
-        )
-        .sort((a, b) => { 
-          if (a.FoodItem < b.FoodItem) return -1;
-          if (a.FoodItem > b.FoodItem) return 1;
-          return 0;
-        });
-      
-      console.log(`Found ${matches.length} matches for "${foodName}":`, matches.map(m => m.FoodItem));
-      setSuggestions(matches);
-      
-      // Clear selection if no matches or multiple matches (user must choose)
-      if (matches.length === 0) {
-        setSelectedFood(null);
-      }
-    } else {
-      setSuggestions([]);
-      if (foodName.length === 0) {
-        setSelectedFood(null);
-      }
-    }
-  }, [foodName, foodData])
-
-  // Recalculate results when portion size changes
-  useEffect(() => {
-    if (showResults && selectedFood && selectedBreed) {
-      handleSubmit();
-    }
-  }, [portionSize, showResults, selectedFood, selectedBreed])
-
-  // Handle form submission
+  // Define handleSubmit before effects that may depend on it
   const handleSubmit = () => {
     if (selectedFood && selectedBreed && foodData.length > 0) {
       let portionGrams = PORTION_SIZES[portionSize];
-      
-      // If whole_item is selected, use the food's actual whole item weight
       if (portionGrams === -1) {
         const wholeItemWeight = Number(selectedFood.Average_Whole_Item_Weight_g);
-        if (wholeItemWeight > 0) {
-          portionGrams = wholeItemWeight;
-        } else {
-          // Fallback to 100g if no whole item weight is available
-          portionGrams = 100;
-        }
+        portionGrams = wholeItemWeight > 0 ? wholeItemWeight : 100;
       }
-      
       const caloriesForDog = (Number(selectedFood.Cals_per100grams) / 100) * portionGrams;
-      
-      // Calculate breed-specific daily calorie needs
       const breedDailyCalories = selectedBreed.avg_weight * CALORIES_PER_POUND_PER_DAY;
       const dogPercentageImpact = (caloriesForDog / breedDailyCalories) * 100;
       const humanEquivalentKcal = (dogPercentageImpact / 100) * HUMAN_DAILY_CALORIES;
 
-      // Fix chart data: show dog percentage vs human equivalent percentage
-      const humanEquivalentPercentage = (humanEquivalentKcal / HUMAN_DAILY_CALORIES) * 100;
-      
-      console.log('Chart data calculation:', {
-        dogPercentageImpact,
-        humanEquivalentKcal,
-        humanEquivalentPercentage,
-        breedDailyCalories,
-        HUMAN_DAILY_CALORIES
-      });
-      
       setChartData([
         {
           name: `${selectedBreed.name}'s Intake`,
-          barValue: dogPercentageImpact, 
+          barValue: dogPercentageImpact,
           onBarLabel: `${dogPercentageImpact.toFixed(1)}%`,
           tooltipInfo: `${caloriesForDog.toFixed(1)} kcal (${dogPercentageImpact.toFixed(1)}% of ${selectedBreed.name}'s daily limit)`,
-          fill: "#56EBFF", 
+          fill: "#56EBFF",
         },
         {
           name: 'Human Equivalent Impact',
-          barValue: humanEquivalentPercentage, // This should be the same percentage as dog
+          barValue: (humanEquivalentKcal / HUMAN_DAILY_CALORIES) * 100,
           onBarLabel: `${humanEquivalentKcal.toFixed(0)} kcal`,
-          tooltipInfo: `${humanEquivalentKcal.toFixed(0)} kcal (${humanEquivalentPercentage.toFixed(1)}% of human daily limit)`,
-          fill: "#FBBC43", 
+          tooltipInfo: `${humanEquivalentKcal.toFixed(0)} kcal (${((humanEquivalentKcal / HUMAN_DAILY_CALORIES) * 100).toFixed(1)}% of human daily limit)`,
+          fill: "#FBBC43",
         },
       ]);
 
-      // Create relatable human food references
+      // Create relatable refs using humanEquivalentKcal (existing logic below remains)
       const createRelatableFoodRefs = (targetCalories: number) => {
         const commonFoods = [
           { name: 'Pizza Slice', calories: 285 },
@@ -492,6 +316,170 @@ export function CalorieCalculator() {
     }
   };
 
+  // Effect for closing suggestions on outside click (remains the same)
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        suggestionsContainerRef.current &&
+        !suggestionsContainerRef.current.contains(event.target as Node) &&
+        inputRef.current &&
+        !inputRef.current.contains(event.target as Node)
+      ) {
+        setSuggestions([]);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [suggestionsContainerRef, inputRef]);
+
+  // Fetch breeds data
+  useEffect(() => {
+    fetch('/data/breeds.csv')
+      .then((response) => response.text())
+      .then((text) => {
+        const rows = text.trim().split('\n').slice(1); // Skip header
+        const data = rows
+          .map((row) => {
+            const parts = row.split(',');
+            if (parts.length < 3) return null; // Need at least 3 columns: name, min_weight, max_weight
+            
+            const name = parts[0]?.trim(); // Breed name is in first column
+            const minWeightStr = parts[1]?.trim(); // min_weight column (second column)
+            const maxWeightStr = parts[2]?.trim(); // max_weight column (third column)
+            
+            if (!name || !minWeightStr || !maxWeightStr) return null;
+            
+            const minWeight = parseFloat(minWeightStr);
+            const maxWeight = parseFloat(maxWeightStr);
+            
+            if (isNaN(minWeight) || isNaN(maxWeight) || minWeight <= 0 || maxWeight <= 0) return null;
+            
+            return {
+              name: name,
+              min_weight: minWeight,
+              max_weight: maxWeight,
+              avg_weight: (minWeight + maxWeight) / 2
+            };
+          })
+          .filter((item): item is BreedData => item !== null)
+          .sort((a, b) => a.name.localeCompare(b.name)); // Sort alphabetically
+        
+        console.log("Parsed breed data count:", data.length);
+        setBreedData(data);
+      })
+      .catch(error => console.error("Error fetching or parsing breeds.csv:", error));
+  }, []);
+
+  // Updated CSV Fetching Effect for calories.csv
+  useEffect(() => {
+    fetch('/data/calories.csv')
+      .then((response) => response.text())
+      .then((text) => {
+        const rows = text.trim().split('\n').slice(1).filter(row => row.trim() !== ''); // Skip header
+        
+        const data = rows
+          .map((row) => {
+            const parts = row.split(',');
+            
+            if (parts.length < 5) {
+              console.warn('Skipping malformed CSV row (not enough columns):', row);
+              return null;
+            }
+            
+            const foodCategory = parts[0]?.trim();
+            const foodItem = parts[1]?.trim();
+            const per100grams = parts[2]?.trim();
+            const caloriesStr = parts[3]?.trim();
+            const kjStr = parts[4]?.trim();
+            const wholeItemWeightStr = parts[5]?.trim();
+            const warningStr = parts[6]?.trim() || '';
+
+            if (!foodItem || !caloriesStr) {
+              console.warn('Skipping row due to missing food item or calories:', row);
+              return null;
+            }
+
+            // Extract numeric value from calories string (e.g., "62 cal" -> "62" or just "62")
+            let calories = caloriesStr;
+            
+            // Check if it's in "62 cal" format
+            const caloriesMatch = caloriesStr.match(/(\d+)\s*cal/);
+            if (caloriesMatch) {
+              calories = caloriesMatch[1];
+            } else {
+              // If no "cal" suffix, assume it's just the number
+              calories = caloriesStr;
+            }
+            
+            if (isNaN(Number(calories))) {
+              console.warn('Skipping row due to invalid calorie number:', row);
+              return null;
+            }
+
+            return {
+              FoodCategory: foodCategory,
+              FoodItem: foodItem,
+              per100grams: per100grams,
+              Cals_per100grams: calories,
+              KJ_per100grams: kjStr,
+              Average_Whole_Item_Weight_g: wholeItemWeightStr || '',
+              DogWarning: warningStr || '',
+            };
+          })
+          .filter((item): item is FoodData => item !== null);
+        
+        console.log("Parsed food data count:", data.length);
+        console.log("Sample foods:", data.slice(0, 10).map(f => f.FoodItem));
+        
+        // Debug: Check for foods with whole item weights
+        const foodsWithWeights = data.filter(f => f && f.Average_Whole_Item_Weight_g && Number(f.Average_Whole_Item_Weight_g) > 0);
+        console.log("Foods with whole item weights:", foodsWithWeights.length);
+        console.log("Sample foods with weights:", foodsWithWeights.slice(0, 5).map(f => `${f.FoodItem} (${f.Average_Whole_Item_Weight_g}g)`));
+        
+        setFoodData(data);
+      })
+      .catch(error => console.error("Error fetching or parsing calories.csv:", error));
+  }, [])
+
+  // Updated Suggestions Filtering Effect - no auto-selection
+  useEffect(() => {
+    if (foodName.length > 1 && foodData.length > 0) { 
+      const lowercasedFoodName = foodName.toLowerCase();
+      const matches = foodData
+        .filter((food) =>
+          food.FoodItem && 
+          food.FoodItem.toLowerCase().includes(lowercasedFoodName)
+        )
+        .sort((a, b) => { 
+          if (a.FoodItem < b.FoodItem) return -1;
+          if (a.FoodItem > b.FoodItem) return 1;
+          return 0;
+        });
+      
+      console.log(`Found ${matches.length} matches for "${foodName}":`, matches.map(m => m.FoodItem));
+      setSuggestions(matches);
+      
+      // Clear selection if no matches or multiple matches (user must choose)
+      if (matches.length === 0) {
+        setSelectedFood(null);
+      }
+    } else {
+      setSuggestions([]);
+      if (foodName.length === 0) {
+        setSelectedFood(null);
+      }
+    }
+  }, [foodName, foodData])
+
+  // Recalculate results when portion size changes
+  useEffect(() => {
+    if (showResults && selectedFood && selectedBreed) {
+      handleSubmit();
+    }
+  }, [portionSize, showResults, selectedFood, selectedBreed, handleSubmit])
+
   // Calculate humanPercentageOfDailyIntake for the text display
   let humanPercentageOfDailyIntakeText = "0.0%";
   let breedDailyCalories = 0;
@@ -664,7 +652,7 @@ export function CalorieCalculator() {
               <p className="text-[#34465b]">
                 <span className="font-medium">Equivalent for Human:</span>{' '}
                 {(((Number(selectedFood.Cals_per100grams) / 100) * currentPortionGrams) / breedDailyCalories * HUMAN_DAILY_CALORIES).toFixed(0)} kcal
-                 <span className="text-sm text-[#34465b]/70"> (This is {humanPercentageOfDailyIntakeText} of a human's typical daily intake)</span>
+                 <span className="text-sm text-[#34465b]/70"> (This is {humanPercentageOfDailyIntakeText} of a human&#39;s typical daily intake)</span>
               </p>
               {selectedFood?.DogWarning && selectedFood.DogWarning.trim().length > 0 && (
                 <div className="mt-3 rounded-md border border-red-300 bg-red-50 p-3 text-red-800">
@@ -674,7 +662,7 @@ export function CalorieCalculator() {
               {humanRefs.length > 0 && (
                 <div className="mt-3 p-3 bg-[#F0F8FF] rounded-lg border border-[#C1D8EE]">
                   <p className="text-[#34465b] font-medium mb-2">
-                    🍽️ That's like eating:
+                    🍽️ That&apos;s like eating:
                   </p>
                   <div className="space-y-1">
                     {humanRefs.map((r, i) => (
